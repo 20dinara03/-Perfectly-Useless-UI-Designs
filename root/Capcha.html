@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinball CAPTCHA</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            background: #f0f0f0;
+            display: block;
+            margin: auto;
+            border: 2px solid #333;
+        }
+        #collected {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 10px;
+        }
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 2px solid black;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        #popup button {
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Pinball CAPTCHA: Hit the Letters!</h2>
+    <p>CAPTCHA: <strong>HELLO</strong></p>
+    <p id="collected">Collected: </p>
+    <canvas id="pinballCanvas" width="500" height="600"></canvas>
+    <p>Use Left/Right Arrow keys to control the paddle.</p>
+    
+    <div id="popup">
+        <p>Oops, that didn't work. Want to try a different way?</p>
+        <button onclick="redirectToNewCaptcha()">OK</button>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById("pinballCanvas");
+        const ctx = canvas.getContext("2d");
+        const captchaWord = "HELLO";
+        let collectedLetters = "";
+        let gameRunning = true;
+        
+        let ball = { x: 250, y: 540, radius: 7, dx: 2, dy: -2 };
+        let paddle = { x: 210, y: 550, width: 80, height: 10, dx: 0 };
+        let availableLetters = "AABCDDEEFGGHIJKLLMNOOPQRRSTUUVWWXYZZ".split("");
+        let letters = availableLetters.map((letter, i) => ({
+            x: Math.random() * 300 + 50,
+            y: Math.random() * 400 + 50,
+            text: letter,
+            hit: false
+        }));
+        
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "red";
+            ctx.fill();
+            ctx.closePath();
+        }
+        
+        function drawPaddle() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        }
+        
+        function drawLetters() {
+            ctx.font = "20px Arial";
+            ctx.fillStyle = "blue";
+            letters.forEach(letter => {
+                if (!letter.hit) {
+                    ctx.fillText(letter.text, letter.x, letter.y);
+                }
+            });
+        }
+        
+        function updateBall() {
+            if (!gameRunning) return;
+            
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+                ball.dx = -ball.dx;
+            }
+            if (ball.y - ball.radius < 0) {
+                ball.dy = -ball.dy;
+            }
+            
+            if (
+                ball.y + ball.radius > paddle.y &&
+                ball.x > paddle.x &&
+                ball.x < paddle.x + paddle.width
+            ) {
+                ball.dy = -ball.dy;
+            }
+            
+            letters.forEach(letter => {
+                if (!letter.hit && Math.abs(ball.x - letter.x) < 10 && Math.abs(ball.y - letter.y) < 10) {
+                    letter.hit = true;
+                    ball.dy = -ball.dy;
+                    collectedLetters += letter.text;
+                    updateCollectedText();
+                    checkCaptcha();
+                }
+            });
+        }
+        
+        function updateCollectedText() {
+            document.getElementById("collected").innerText = "Collected: " + collectedLetters;
+        }
+        
+        function checkCaptcha() {
+            if (collectedLetters.length >= captchaWord.length) {
+                gameRunning = false;
+                if (collectedLetters === captchaWord) {
+                    alert("CAPTCHA Solved!");
+                } else {
+                    document.getElementById("popup").style.display = "block";
+                }
+            }
+        }
+        
+        function redirectToNewCaptcha() {
+            window.location.href = "Capcha2.html";
+        }
+        
+        function movePaddle() {
+            if (!gameRunning) return;
+            paddle.x += paddle.dx;
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+        }
+        
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBall();
+            drawPaddle();
+            drawLetters();
+            updateBall();
+            movePaddle();
+            if (gameRunning) requestAnimationFrame(gameLoop);
+        }
+        
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") paddle.dx = -5;
+            if (e.key === "ArrowRight") paddle.dx = 5;
+        });
+        document.addEventListener("keyup", () => {
+            paddle.dx = 0;
+        });
+        
+        gameLoop();
+    </script>
+</body>
+</html>
