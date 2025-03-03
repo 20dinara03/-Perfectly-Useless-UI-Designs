@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plinko CAPTCHA</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            background: #f0f0f0;
+            display: block;
+            margin: auto;
+            border: 2px solid #333;
+        }
+        #collected {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 10px;
+        }
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 2px solid black;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        #popup button {
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Plinko CAPTCHA</h2>
+    <p>CAPTCHA: <strong id="captchaWord">HELLO</strong></p>
+    <p id="collected">Collected: </p>
+    <canvas id="gameCanvas" width="600" height="500"></canvas>
+    <p>Click on the letters to drop them into the Plinko board!</p>
+    
+    <div id="popup">
+        <p id="popupMessage">Oops, that didn't work! Want to try again?</p>
+        <button onclick="startNewGame()">Retry</button>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const captchaWord = "HELLO";
+        let collectedLetters = new Array(captchaWord.length).fill(null);
+        let letters = [];
+        let fallingLetters = [];
+        let pegs = [];
+        let movingTarget = { x: 200, y: 450, width: captchaWord.length * 50, height: 20, direction: 1 };
+        let gameRunning = true;
+        
+        function generateLetters() {
+            letters = [];
+            for (let i = 0; i < 26; i++) {
+                let letter = {
+                    x: 20 + i * 20,
+                    y: 30,
+                    text: String.fromCharCode(65 + i)
+                };
+                letters.push(letter);
+            }
+        }
+        
+        function generatePegs() {
+            pegs = [];
+            for (let i = 0; i < 7; i++) {
+                for (let j = 0; j < 6; j++) {
+                    pegs.push({ x: 50 + j * 100 + (i % 2) * 50, y: 100 + i * 50 });
+                }
+            }
+        }
+        
+        function drawPegs() {
+            ctx.fillStyle = "black";
+            pegs.forEach(peg => {
+                ctx.beginPath();
+                ctx.arc(peg.x, peg.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        function drawLetters() {
+            ctx.font = "20px Arial";
+            ctx.fillStyle = "blue";
+            letters.forEach(letter => {
+                ctx.fillText(letter.text, letter.x, letter.y);
+            });
+        }
+        
+        function drawFallingLetters() {
+            ctx.fillStyle = "red";
+            for (let i = fallingLetters.length - 1; i >= 0; i--) {
+                let letter = fallingLetters[i];
+                ctx.fillText(letter.text, letter.x, letter.y);
+                letter.y += letter.dy;
+                letter.x += letter.dx;
+                
+                pegs.forEach(peg => {
+                    if (Math.abs(letter.x - peg.x) < 10 && Math.abs(letter.y - peg.y) < 10) {
+                        letter.dy *= -0.3;
+                        letter.dx += (Math.random() - 0.5) * 1; 
+
+                    }
+                });
+                
+                if (letter.y >= movingTarget.y) {
+                    let slot = Math.floor((letter.x - movingTarget.x) / 50);
+                    if (slot >= 0 && slot < captchaWord.length && collectedLetters[slot] === null) {
+                        collectedLetters[slot] = letter.text;
+                        checkCaptcha();
+                        fallingLetters.splice(i, 1);
+                    }
+                }
+                
+                if (letter.y >= canvas.height) {
+                    fallingLetters.splice(i, 1);
+                }
+            }
+        }
+        
+        function drawMovingTarget() {
+            ctx.fillStyle = "white";
+            ctx.fillRect(movingTarget.x, movingTarget.y, movingTarget.width, movingTarget.height);
+            ctx.strokeStyle = "black";
+            ctx.strokeRect(movingTarget.x, movingTarget.y, movingTarget.width, movingTarget.height);
+            
+            for (let i = 0; i < captchaWord.length; i++) {
+                ctx.strokeRect(movingTarget.x + i * 50, movingTarget.y, 50, movingTarget.height);
+            }
+            
+            ctx.fillStyle = "black";
+            ctx.font = "20px Arial";
+            collectedLetters.forEach((letter, i) => {
+                if (letter) {
+                    ctx.fillText(letter, movingTarget.x + i * 50 + 15, movingTarget.y + 30);
+                }
+            });
+            
+            movingTarget.x += movingTarget.direction * 2;
+            if (movingTarget.x <= 0 || movingTarget.x + movingTarget.width >= canvas.width) {
+                movingTarget.direction *= -1;
+            }
+        }
+        function checkCaptcha() {
+            if (!collectedLetters.includes(null)) { 
+                let collectedWord = collectedLetters.join("");
+                if (collectedWord === captchaWord) {
+                alert("CAPTCHA Solved!");
+                } else {
+                    document.getElementById("popup").style.display = "block";
+                }
+            }
+        }
+
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPegs();
+            drawLetters();
+            drawFallingLetters();
+            drawMovingTarget();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        canvas.addEventListener("click", function(event) {
+            if (!gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+            
+            letters.forEach(letter => {
+                if (
+                    clickX > letter.x - 10 && clickX < letter.x + 20 &&
+                    clickY > letter.y - 10 && clickY < letter.y + 20
+                ) {
+                    fallingLetters.push({
+                        x: letter.x,
+                        y: letter.y,
+                        text: letter.text,
+                        dx: (Math.random() - 0.5) * 2,
+                        dy: 2
+                    });
+                }
+            });
+        });
+        
+        function startNewGame() {
+            collectedLetters.fill(null);
+            fallingLetters = [];
+            document.getElementById("popup").style.display = "none"; // Закрываем всплывающее окно
+            generateLetters();
+            generatePegs();
+            gameLoop();
+        }
+
+        
+        startNewGame();
+    </script>
+</body>
+</html>

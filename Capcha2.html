@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duck Hunt CAPTCHA</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            background: #f0f0f0;
+            display: block;
+            margin: auto;
+            border: 2px solid #333;
+        }
+        #collected, #timer {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 10px;
+        }
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 2px solid black;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        #popup button {
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Duck Hunt CAPTCHA: Catch the Letters!</h2>
+    <p>CAPTCHA: <strong id="captchaWord">HELLO</strong></p>
+    <p id="collected">Collected: </p>
+    <p id="timer">Time Left: 30s</p>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <p>Click on the flying letters to collect them!</p>
+    
+    <div id="popup">
+        <p id="popupMessage">Oops, time's up! Want to try again?</p>
+        <button onclick="redirectToNextCaptcha()">OK</button>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const captchaWord = "HELLO";
+        let collectedLetters = "";
+        let letters = [];
+        let gameRunning = true;
+        let timer;
+        let timeLeft = 30;
+        
+        function generateLetter() {
+            let letter = {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                dx: (Math.random() - 0.5) * 4,
+                dy: (Math.random() - 0.5) * 4,
+                text: String.fromCharCode(65 + Math.floor(Math.random() * 26))
+            };
+            letters.push(letter);
+        }
+        
+        function updateLetters() {
+            letters.forEach(letter => {
+                letter.x += letter.dx;
+                letter.y += letter.dy;
+                
+                if (letter.x < -20) letter.x = canvas.width;
+                if (letter.x > canvas.width + 20) letter.x = -20;
+                if (letter.y < -20) letter.y = canvas.height;
+                if (letter.y > canvas.height + 20) letter.y = -20;
+            });
+        }
+        
+        function drawLetters() {
+            ctx.font = "20px Arial";
+            ctx.fillStyle = "blue";
+            letters.forEach(letter => {
+                ctx.fillText(letter.text, letter.x, letter.y);
+            });
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawLetters();
+            updateLetters();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function startTimer() {
+            timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById("timer").innerText = "Time Left: " + timeLeft + "s";
+                if (timeLeft <= 0) {
+                    endGame(false);
+                }
+            }, 1000);
+        }
+        
+        function endGame(success) {
+            gameRunning = false;
+            clearInterval(timer);
+            document.getElementById("popupMessage").innerText = success ? "Oops, that didn't work. Want to try a different way?" : "Oops, time's up! Want to try again?";
+            document.getElementById("popup").style.display = "block";
+        }
+        
+        function redirectToNextCaptcha() {
+            window.location.href = "Capcha3.html";
+        }
+        
+        function startNewGame() {
+            collectedLetters = "";
+            letters = [];
+            timeLeft = 30;
+            document.getElementById("collected").innerText = "Collected: ";
+            document.getElementById("timer").innerText = "Time Left: 30s";
+            document.getElementById("popup").style.display = "none";
+            gameRunning = true;
+            for (let i = 0; i < 30; i++) generateLetter(); // Start with many letters
+            setInterval(() => generateLetter(), 500); // Add more letters frequently
+            startTimer();
+            gameLoop();
+        }
+        
+        canvas.addEventListener("click", function(event) {
+            if (!gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            for (let i = 0; i < letters.length; i++) {
+                let letter = letters[i];
+                if (
+                    clickX > letter.x - 10 && clickX < letter.x + 20 &&
+                    clickY > letter.y - 10 && clickY < letter.y + 20
+                ) {
+                    collectedLetters += letter.text;
+                    document.getElementById("collected").innerText = "Collected: " + collectedLetters;
+                    letters.splice(i, 1);
+                    
+                    if (collectedLetters.length >= captchaWord.length) {
+                        endGame(true);
+                    }
+                    
+                    break;
+                }
+            }
+        });
+        
+        startNewGame();
+    </script>
+</body>
+</html>
